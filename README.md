@@ -10,6 +10,8 @@ With Google's [Go](http://www.golang.org) installed on your machine:
 
 ## Usage
 
+
+
 ```go
 package main
 
@@ -18,13 +20,17 @@ import (
 )
 
 func main() {
-  server := socket.NewServer(3000, "127.0.0.1")
+  server := socket.NewServer(socket.TCP, "127.0.0.1", 3000)
 
-  server.On(socket.CONNECTION, func(client *socket.Client) {
+  server.On(socket.CONNECTION, func(client socket.Client) {
     client.On(socket.DRAIN, func(buffer socket.Buffer) {
       println(buffer.String())
     })
   })
+  
+  if err := server.Listen(); nil != err {
+    panic(err)
+  }
 }
 ```
 
