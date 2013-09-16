@@ -1,10 +1,32 @@
 # socket
 
+Functional socket communication for Go.
+
 ## Installation
 
 With Google's [Go](http://www.golang.org) installed on your machine:
 
     $ go get -u github.com/chuckpreslar/socket
+
+## Usage
+
+```go
+package main
+
+import (
+  "github.com/chuckpreslar/socket"
+)
+
+func main() {
+  server := socket.NewServer(3000, "127.0.0.1")
+
+  server.On(socket.CONNECTION, func(client *socket.Client) {
+    client.On(socket.DRAIN, func(buffer socket.Buffer) {
+      println(buffer.String())
+    })
+  })
+}
+```
 
 ## Documentation
 
