@@ -1,5 +1,9 @@
 package socket
 
+import (
+  "github.com/chuckpreslar/emission"
+)
+
 type Event uint8
 
 const (
@@ -13,36 +17,44 @@ const (
   TIMEOUT
 )
 
-type Buffer struct{}
-
-type Handler interface {
-  handler()
+type Listener interface {
+  accept()
 }
 
-type EventHandler func() error
-type ConnectionHandler func(Socket) error
-type DataHandler func(Buffer) error
+type EventListener func()
+type ConnectionListener func(Socket)
+type DataListener func(Buffer)
 
-func (h EventHandler) handler()      {}
-func (h ConnectionHandler) handler() {}
-func (h DataHandler) handler()       {}
-
-type Emitter struct {
-  events map[Event][]Handler
-}
-
-func (e *Emitter) AddListener(event Event, handler Handler) {}
-func (e *Emitter) On(event Event, handler Handler)          {}
-func (e *Emitter) RemoveListener(handler Handler)           {}
-func (e *Emitter) Off(handler Handler)                      {}
-
-type Server struct {
-  *Emitter
-}
-
-func (s *Server) Listen() (err error) {}
-func (s *Server) Close() (err error)  {}
+func (h EventListener) accept()      {}
+func (h ConnectionListener) accept() {}
+func (h DataListener) accept()       {}
 
 type Socket struct {
-  *Emitter
+  emitter *emission.Emitter
+}
+
+func (s *Server) Close() *Socket {
+  return s
+}
+
+func NewSocket() (socket *Socket, err error) {
+  socket = new(Socket)
+  return
+}
+
+type Server struct {
+  emitter *emission.Emitter
+}
+
+func (s *Server) Listen() *Server {
+  return s
+}
+
+func (s *Server) Close() *Server {
+  return s
+}
+
+func NewServer() (server *Server, err error) {
+  server = new(Server)
+  return
 }
