@@ -1,6 +1,6 @@
 # socket
 
-Functional socket communication for Go.
+Functional TCP/UDP socket communication for Go.
 
 ## Installation
 
