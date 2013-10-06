@@ -1,6 +1,6 @@
 # socket
 
-Functional TCP/UDP socket communication for Go.
+Functional socket communication for Go.
 
 ## Installation
 
@@ -16,21 +16,24 @@ With Google's [Go](http://www.golang.org) installed on your machine:
 package main
 
 import (
+  "bytes"
+  "fmt"
+)
+
+import (
   "github.com/chuckpreslar/socket"
 )
 
 func main() {
-  server := socket.NewServer(socket.TCP, "127.0.0.1", 3000)
+  s := socket.NewSocket()
 
-  server.On(socket.CONNECTION, func(client socket.Client) {
-    client.On(socket.DRAIN, func(buffer socket.Buffer) {
-      println(buffer.String())
-    })
+  s.On(socket.Data, func(data *bytes.Buffer) {
+    fmt.Println(data)
+  }).On(socket.Error, func(err error) {
+    fmt.Println(err)
+  }).Connect("address", 3000, func() {
+    fmt.Println("Connected to %s\n", s.RemoteAddress())
   })
-  
-  if err := server.Listen(); nil != err {
-    panic(err)
-  }
 }
 ```
 

@@ -1,60 +1,99 @@
 package socket
 
 import (
-  "github.com/chuckpreslar/emission"
+	"bytes"
+	"fmt"
+	"net"
+	"sync"
+	"time"
 )
 
-type Event uint8
+import (
+	"github.com/chuckpreslar/emission"
+)
+
+type event uint8
 
 const (
-  CONNECTION Event = iota
-  CLOSE
-  DATA
-  DRAIN
-  END
-  ERROR
-  LISTENING
-  TIMEOUT
+	Connection event = iota
+	Close
+	Data
+	Drain
+	End
+	Error
+	Listening
+	Timout
 )
 
-type Listener interface {
-  accept()
-}
-
-type EventListener func()
-type ConnectionListener func(Socket)
-type DataListener func(Buffer)
-
-func (h EventListener) accept()      {}
-func (h ConnectionListener) accept() {}
-func (h DataListener) accept()       {}
+const (
+	PacketSize = 1024
+)
 
 type Socket struct {
-  emitter *emission.Emitter
+	*emission.Emitter
+	*sync.WaitGroup
+	net.Conn
+
+	buffer    *bytes.Buffer
+	connected bool
 }
 
-func (s *Server) Close() *Socket {
-  return s
+func (s *Socket) read() {
+	for {
+		data := make([]byte, PacketSize)
+		s.SetDeadline(time.Now().Add(5 * time.Millisecond))
+
+		if n, err := s.Read(data); nil != err {
+			s.Emit(Error, err)
+			break
+		} else if n > 0 {
+			buffer := bytes.NewBuffer(data)
+			s.Emit(Data, buffer)
+		} else {
+			s.Emit(Drain)
+		}
+	}
+
+	s.Done()
 }
 
-func NewSocket() (socket *Socket, err error) {
-  socket = new(Socket)
-  return
+func (s *Socket) Connect(h string, p int, fn ...interface{}) *Socket {
+	var err error
+
+	if 0 < len(fn) {
+		s.On(Connection, fn[0])
+	}
+
+	if s.Conn, err = net.Dial("tcp", fmt.Sprintf("%v:%v", h, p)); nil != err {
+		s.Emit(Error, err)
+	} else {
+		s.Emit(Connection)
+	}
+
+	s.connected = true
+	s.Add(1)
+	defer s.Wait()
+
+	go s.read()
+	return s
 }
 
-type Server struct {
-  emitter *emission.Emitter
+func (s *Socket) On(e event, fn interface{}) *Socket {
+	s.Emitter.On(e, fn)
+
+	if e == Data {
+
+	}
+
+	return s
 }
 
-func (s *Server) Listen() *Server {
-  return s
-}
+func (s *Socket) Close() *Socket { return s }
 
-func (s *Server) Close() *Server {
-  return s
-}
-
-func NewServer() (server *Server, err error) {
-  server = new(Server)
-  return
+func NewSocket() (s *Socket) {
+	s = new(Socket)
+	s.WaitGroup = new(sync.WaitGroup)
+	s.Emitter = emission.NewEmitter()
+	s.buffer = &bytes.Buffer{}
+	return
 }
