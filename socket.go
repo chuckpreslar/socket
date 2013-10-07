@@ -3,26 +3,28 @@ package socket
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
-	"sync"
-	"time"
 )
 
 import (
 	"github.com/chuckpreslar/emission"
 )
 
-type event uint8
+type Event uint8
 
 const (
-	Connection event = iota
+	Connection Event = iota
 	Close
 	Data
-	Drain
-	End
 	Error
-	Listening
-	Timout
+)
+
+type Protocol string
+
+const (
+	TCP Protocol = "tcp"
+	UDP Protocol = "udp"
 )
 
 const (
@@ -31,69 +33,58 @@ const (
 
 type Socket struct {
 	*emission.Emitter
-	*sync.WaitGroup
-	net.Conn
-
-	buffer    *bytes.Buffer
-	connected bool
+	connection net.Conn
 }
 
 func (s *Socket) read() {
 	for {
 		data := make([]byte, PacketSize)
-		s.SetDeadline(time.Now().Add(5 * time.Millisecond))
 
-		if n, err := s.Read(data); nil != err {
-			s.Emit(Error, err)
+		if n, err := s.connection.Read(data); nil != err {
+			if io.EOF == err {
+				s.Emit(Close)
+			} else {
+				s.Emit(Error, err)
+			}
+
 			break
 		} else if n > 0 {
 			buffer := bytes.NewBuffer(data)
 			s.Emit(Data, buffer)
-		} else {
-			s.Emit(Drain)
 		}
 	}
-
-	s.Done()
 }
 
-func (s *Socket) Connect(h string, p int, fn ...interface{}) *Socket {
+func (s *Socket) On(event Event, listener interface{}) *Socket {
+	s.Emitter.On(event, listener)
+	return s
+}
+
+func (s *Socket) Write(bytes []byte) *Socket {
+	go func(socket *Socket) {
+		if _, err := socket.connection.Write(bytes); nil != err {
+			socket.Emit(Error, err)
+		}
+	}(s)
+
+	return s
+}
+
+func (s *Socket) WriteString(str string) *Socket {
+	return s.Write([]byte(str))
+}
+
+func Connect(host string, port int, protocol Protocol, listener interface{}) {
+	socket := new(Socket)
+	socket.Emitter = emission.NewEmitter()
+	socket.On(Connection, listener)
+
 	var err error
 
-	if 0 < len(fn) {
-		s.On(Connection, fn[0])
-	}
-
-	if s.Conn, err = net.Dial("tcp", fmt.Sprintf("%v:%v", h, p)); nil != err {
-		s.Emit(Error, err)
+	if socket.connection, err = net.Dial(string(protocol), fmt.Sprintf("%v:%v", host, port)); nil != err {
+		socket.Emit(Connection, socket).Emit(Error, err)
 	} else {
-		s.Emit(Connection)
+		socket.Emit(Connection, socket)
+		socket.read()
 	}
-
-	s.connected = true
-	s.Add(1)
-	defer s.Wait()
-
-	go s.read()
-	return s
-}
-
-func (s *Socket) On(e event, fn interface{}) *Socket {
-	s.Emitter.On(e, fn)
-
-	if e == Data {
-
-	}
-
-	return s
-}
-
-func (s *Socket) Close() *Socket { return s }
-
-func NewSocket() (s *Socket) {
-	s = new(Socket)
-	s.WaitGroup = new(sync.WaitGroup)
-	s.Emitter = emission.NewEmitter()
-	s.buffer = &bytes.Buffer{}
-	return
 }

@@ -25,14 +25,14 @@ import (
 )
 
 func main() {
-  s := socket.NewSocket()
-
-  s.On(socket.Data, func(data *bytes.Buffer) {
-    fmt.Println(data)
-  }).On(socket.Error, func(err error) {
-    fmt.Println(err)
-  }).Connect("address", 3000, func() {
-    fmt.Println("Connected to %s\n", s.RemoteAddress())
+  socket.Connect("localhost", 3000, socket.TCP, function(connection *socket.Socket) {
+    connection.On(socket.Data, func(buffer *bytes.Buffer) {
+      fmt.Printf("Received %s\n", buffer)
+    }).On(socket.Error, func(err error) {
+      fmt.Printf("Error %s\n", err)
+    }).On(socket.Close, func() {
+      fmt.Print("Socket connection closed\n")
+    })
   })
 }
 ```
