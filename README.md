@@ -1,6 +1,6 @@
 # socket
 
-Functional socket communication for Go.
+Functional socket communication for Go.  Not intended for use at the moment, just a rough sketch of an idea.
 
 ## Installation
 
